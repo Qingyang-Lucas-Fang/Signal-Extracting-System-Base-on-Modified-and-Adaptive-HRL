@@ -127,38 +127,38 @@ The key design decision is **not** to learn raw trading actions directly, but to
 This decomposition is structural and mathematically necessary.
 
 ---
-
 ## 3.1 Problem Formulation
 
 Let:
 
-- **A = {α₁, α₂, …, αₙ}**  
-  A large pool of candidate alpha signals generated and filtered upstream
+- **$A = \{\\alpha_1, \\alpha_2, \\dots, \\alpha_N\}$**  
+  A large pool of candidate alpha signals generated and filtered upstream.
 
-- **T**  
-  The current decision timestamp
+- **$T$**  
+  The current decision timestamp.
 
 The objective is to construct a portfolio signal:
 
-p_T = Σ (i = 1 to N) [ w_i,T · α_i ]
-
+$$
+p_T = \sum_{i=1}^{N} w_{i,T} \\, \\alpha_i
+$$
 
 subject to the constraints:
 
 - **Exposure constraint**
-Σ |w_i,T| ≤ C
-
+$$
+\sum_{i=1}^{N} |w_{i,T}| \\le C
+$$
 
 - **Risk constraint**
-
-
-Risk(p_T) ≤ ρ
-
+$$
+\\mathrm{Risk}(p_T) \\le \\rho
+$$
 
 where:
-- `w_i,T` is the weight assigned to alpha `α_i` at time `T`
-- `C` is the total leverage / exposure budget
-- `ρ` is the maximum allowed portfolio risk
+- $w_{i,T}$ is the weight assigned to alpha $\\alpha_i$ at time $T$
+- $C$ is the total leverage / exposure budget
+- $\\rho$ is the maximum allowed portfolio risk
 
 ### Core Question
 
@@ -168,7 +168,7 @@ Should the model:
 or  
 - Learn **which alphas are valid** and then **assign weights conditionally**?
 
-This system adopts the **second approach**, which is mathematically correct and structurally stable.
+This system adopts the **second approach**, which is mathematically well-posed and structurally stable.
 
 ---
 
@@ -178,247 +178,230 @@ This system adopts the **second approach**, which is mathematically correct and 
 
 The model learns a raw action vector:
 
-
-
-a_T ∈ R^N
-
+$$
+a_T \\in \\mathbb{R}^N
+$$
 
 and normalizes it:
 
-
-
-w_T = a_T / ||a_T||
-
+$$
+w_T = \\frac{a_T}{\\|a_T\\|}
+$$
 
 #### Structural Flaws
 
 - **Implicit feasibility assumption**  
-  All alphas are assumed to be conditionally valid at all times.
+  All alphas are assumed to be valid at all times.
 
 - **Normalization destroys signal geometry**  
   Relative magnitudes after normalization do not correspond to optimal expected returns.
 
 - **Unidentifiable credit assignment**  
-  Poor performance can come from:
-  - bad alpha
-  - bad scaling
-  - noise  
-  These are indistinguishable.
+  Poor performance may originate from bad alphas, bad scaling, or noise, which are inseparable.
 
 - **Severe instability under local learning**  
-  Small data changes cause large portfolio swings.
+  Small data changes induce large portfolio reallocations.
 
-This approach forces learning in a space where **most dimensions should be zero**, but the model is never told that explicitly.
+This formulation forces learning in a dense space where **most dimensions should be zero**, without encoding sparsity explicitly.
 
 ---
 
 ### 3.2.2 Alpha Selection + Weighting (Preferred Formulation)
 
-Introduce a **latent relevance indicator**:
+Introduce a latent relevance indicator:
 
-
-
-z_i,T ∈ {0, 1}
-
+$$
+z_{i,T} \\in \\{0,1\\}
+$$
 
 where:
-- `z_i,T = 1` → alpha `α_i` is locally valid at time `T`
-- `z_i,T = 0` → alpha `α_i` is ignored
+- $z_{i,T} = 1$ indicates alpha $\\alpha_i$ is locally valid at time $T$
+- $z_{i,T} = 0$ indicates alpha $\\alpha_i$ is ignored
 
 The portfolio becomes:
 
+$$
+p_T = \sum_{i=1}^{N} z_{i,T} \\, w_{i,T} \\, \\alpha_i
+$$
 
+This decomposes the problem into:
 
-p_T = Σ (i = 1 to N) [ z_i,T · w_i,T · α_i ]
+1. **Alpha relevance inference**
+2. **Conditional weight allocation**
 
-
-This decomposes the problem into two independent questions:
-
-1. **Which alphas apply now?**
-2. **How much weight should they receive?**
-
-This is a **fundamental decomposition**, not a modeling trick.
+This is a fundamental structural decomposition, not a heuristic.
 
 ---
 
 ## 3.3 State Representation and No Look-Ahead
 
-At decision time `T`, the system constructs a state:
+At decision time $T$, define the state:
 
-
-
-s_T = ( x_{T-1}, u_T )
-
+$$
+s_T = (x_{T-1}, u_T)
+$$
 
 where:
 
-- `x_{T-1}`  
-  Market features available **up to time T−1**  
-  (returns, volatility, spreads, microstructure features, etc.)
+- $x_{T-1}$: market features observable up to time $T-1$  
+  (returns, volatility, spreads, microstructure features)
 
-- `u_T`  
-  Contemporaneous execution-related information at time `T`  
-  (current position, volume, liquidity constraints)
+- $u_T$: contemporaneous execution information at time $T$  
+  (current position, volume constraints, liquidity)
 
-### Why This Matters
-
-- Prevents **look-ahead bias**
+This construction:
+- Eliminates look-ahead bias
 - Matches real execution conditions
-- Allows conditioning on current exposure without leaking future prices
+- Conditions decisions on current exposure without leaking future prices
 
 ---
 
 ## 3.4 Local Regime Conditioning via k-NN
 
-Instead of learning from the entire historical dataset, the system performs **case-based inference**.
+Instead of global learning, the system performs **case-based inference**.
 
-### Distance-Based Regime Matching
+Define a distance metric:
 
-Define a distance function:
-
-
-
+$$
 D(s_T, s_t)
-
-
-This measures similarity between the current state and a past state.
+$$
 
 The local neighborhood is:
 
+$$
+\\mathcal{N}_k(s_T) = \\text{k nearest past states to } s_T
+$$
 
+All estimation and learning are performed **only within this neighborhood**.
 
-N_k(s_T) = k nearest past states to s_T
-
-
-All learning and estimation are performed **only on this neighborhood**.
-
-### Benefits
+### Advantages
 
 - Regime adaptivity
 - Robustness to non-stationarity
-- Fast response to microstructure changes
-- Natural regularization through locality
+- Fast response to microstructure shifts
+- Implicit regularization via locality
 
 ---
 
 ## 3.5 Local Dataset Construction
 
-From the neighborhood `N_k(s_T)`, construct a local dataset:
+From $\\mathcal{N}_k(s_T)$, construct a local dataset:
 
-
-
-D_T = { (s_tj, r_tj,i) }
-
+$$
+\\mathcal{D}_T = \\{(s_{t_j}, r_{t_j,i})\\}
+$$
 
 where:
-- `s_tj` is a past state similar to `s_T`
-- `r_tj,i` is the realized return of alpha `α_i` at time `t_j`
+- $s_{t_j}$ is a historical state similar to $s_T$
+- $r_{t_j,i}$ is the realized return of alpha $\\alpha_i$ at time $t_j$
 
-This dataset is **reconstructed at every decision point**.
+This dataset is reconstructed at every decision step.
 
 ---
 
 ## 3.6 Alpha Relevance as a Conditional Random Variable
 
-For each alpha `α_i`, define a **local conditional return distribution**:
+For each alpha $\\alpha_i$, define the conditional return distribution:
 
+$$
+R_i \\mid s_T
+$$
 
+Alpha relevance is defined via:
 
-R_i | s_T
+$$
+z_{i,T} = 1 \\quad \\text{if}
+$$
 
-
-Define relevance using a statistical test:
-
-
-
-z_i,T = 1 if:
-E[R_i | s_T] > τ_i
-AND
-Var(R_i | s_T) < σ_i²
-
+$$
+\\mathbb{E}[R_i \\mid s_T] > \\tau_i
+\\quad \\text{and} \\quad
+\\mathrm{Var}(R_i \\mid s_T) < \\sigma_i^2
+$$
 
 where:
-- `τ_i` is a minimum expected return threshold
-- `σ_i²` is a maximum acceptable variance
+- $\\tau_i$ is a minimum expected return threshold
+- $\\sigma_i^2$ is a maximum acceptable variance
 
-This is **conditional hypothesis testing**, not heuristics.
+This is **conditional hypothesis testing**, not heuristic filtering.
 
 ---
 
 ## 3.7 Learning Alpha Relevance (ML / DL)
 
-Instead of hard thresholds, relevance is modeled probabilistically.
+Replace hard thresholds with probabilistic modeling.
 
 ### Relevance Probability
 
-
-
-π_i(s_T) = P(z_i,T = 1 | s_T)
-
+$$
+\\pi_i(s_T) = \\mathbb{P}(z_{i,T} = 1 \\mid s_T)
+$$
 
 Modeled as:
 
-
-
-π_i(s_T) = sigmoid( f_θ( s_T , φ_i ) )
-
+$$
+\\pi_i(s_T) = \\sigma\\big(f_\\theta(s_T, \\phi_i)\\big)
+$$
 
 where:
-- `φ_i` = alpha metadata (cluster ID, turnover, horizon, etc.)
-- `f_θ` = shared model (logistic regression, GBDT, or neural network)
+- $\\phi_i$ denotes alpha metadata (cluster, turnover, horizon)
+- $f_\\theta$ is a shared model (logistic regression, GBDT, neural network)
+- $\\sigma(\\cdot)$ is the sigmoid function
 
 This is a **multi-task conditional classification problem**.
 
-### Local Weighted Loss
+### Locally Weighted Loss
 
-Training is local:
+$$
+\\mathcal{L}_{\\text{select}} =
+\sum_{j=1}^{k} \sum_{i=1}^{N}
+w_j \\, \\Big[
+z_{i,t_j} \\log \\pi_i(s_{t_j})
++ (1 - z_{i,t_j}) \\log(1 - \\pi_i(s_{t_j}))
+\\Big]
+$$
 
-
-
-L_select =
-
-Σ (j = 1 to k) Σ (i = 1 to N)
-w_j · [ z_i,tj log π_i(s_tj)
-+ (1 - z_i,tj) log(1 - π_i(s_tj)) ]
-
-
-This is **case-based learning**, not global training.
+Learning is strictly local.
 
 ---
 
 ## 3.8 Conditional Alpha Weighting
 
-For alphas with `z_i,T = 1`, solve a local mean–variance problem:
+For alphas with $z_{i,T} = 1$, solve:
 
+$$
+\\max_{w_i} \\; \\hat{\\mu}_i(s_T) w_i - \\lambda \\hat{\\sigma}_i^2(s_T) w_i^2
+$$
 
+with local estimates:
 
-maximize: μ̂_i(s_T) · w - λ · σ̂_i²(s_T) · w²
+$$
+\\hat{\\mu}_i(s_T) = \sum_j w_j r_{t_j,i}
+$$
 
+$$
+\\hat{\\sigma}_i^2(s_T) = \sum_j w_j (r_{t_j,i} - \\hat{\\mu}_i)^2
+$$
 
-Local estimates:
-
-
-
-μ̂_i(s_T) = Σ w_j · r_tj,i
-σ̂_i²(s_T) = Σ w_j · (r_tj,i - μ̂_i)²
-
-
-This yields stable, interpretable weights.
+This produces stable and interpretable weights.
 
 ---
 
 ## 3.9 Joint Selection–Allocation Optimization
 
-The full problem is:
+The full problem:
 
-
-
-maximize over {w, z}:
-Σ z_i · μ̂_i · w_i - λ Σ z_i² · w_i² · σ̂_i²
+$$
+\\max_{\\{w_i, z_i\\}}
+\sum_i z_i \\hat{\\mu}_i w_i
+- \\lambda \sum_i z_i^2 \\hat{\\sigma}_i^2 w_i^2
+$$
 
 subject to:
-Σ |z_i · w_i| ≤ C
 
+$$
+\sum_i |z_i w_i| \\le C
+$$
 
 This is a **locally adaptive sparse quadratic program**.
 
@@ -428,64 +411,43 @@ This is a **locally adaptive sparse quadratic program**.
 
 ### Workers (Per Cluster)
 
-For cluster `c`:
+For cluster $c$:
 
-
-
-A_c = { α_i : i ∈ c }
-
+$$
+A_c = \\{\\alpha_i : i \\in c\\}
+$$
 
 Each worker:
-- Estimates alpha relevance probabilities
-- Computes local mean–variance statistics
+- Estimates relevance probabilities
+- Computes local return statistics
 - Operates at microstructure timescales
 
 ### Manager (Across Clusters)
 
 The manager allocates capital across clusters:
 
-
-
-maximize: Σ β_c · μ_c
-subject to: βᵀ Σ β ≤ ρ
-
-
-### Why the Hierarchy Works
-
-- Reduces dimensionality
-- Reduces variance
-- Prevents representation failure
-- Improves regime stability
+$$
+\\max_{\\beta} \\sum_c \\beta_c \\mu_c
+\\quad \\text{s.t.} \\quad
+\\beta^T \\Sigma \\beta \\le \\rho
+$$
 
 ---
 
-## 3.11 Where Deep Learning Actually Helps
+## 3.11 Where Deep Learning Helps
 
-### Representation Learning
-Learn latent states:
+- **Representation learning**
+$$
+z_t = f_\\phi(x_{t-1})
+$$
 
+- **Metric learning**
+$$
+D_\\theta(s_T, s_t)
+$$
 
-z_t = f_φ(x_{t-1})
-
-
-Distance and relevance operate in latent space.
-
-### Metric Learning
-Learn:
-
-
-D_θ(s_T, s_t)
-
-
-so that:
-- Similar regimes → similar alpha performance
-- Dissimilar regimes → poor transfer
-
-### Meta-Learning (Optional)
-Learn how to:
-- Choose `k`
-- Adjust distance kernels
-- Adapt thresholds dynamically
+- **Meta-learning**
+  Adaptive selection of $k$, distance kernels, and thresholds.
 
 ---
 
@@ -493,14 +455,14 @@ Learn how to:
 
 | Aspect | Learn Actions | Learn Alphas |
 |------|--------------|--------------|
-| Sparsity | Emergent (unstable) | Structural |
+| Sparsity | Emergent, unstable | Structural |
 | Interpretability | None | High |
 | Locality | Weak | Native |
 | Overfitting | Severe | Controlled |
-| Failure Mode | Explodes | Degrades gracefully |
+| Failure Mode | Explosive | Graceful |
 
 ---
 
-**In summary:**
+**Summary**
 
-> This system is a locally adaptive, hierarchical, sparse alpha inference engine designed explicitly for non-stationary crypto markets.
+This system is a locally adaptive, hierarchical, sparse alpha inference engine designed explicitly for non-stationary crypto markets.
