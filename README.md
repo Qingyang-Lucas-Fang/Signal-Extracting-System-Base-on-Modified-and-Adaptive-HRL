@@ -180,7 +180,7 @@ This reframes alpha selection as **conditional hypothesis testing**, not heurist
 
 Alpha relevance probabilities:
 \[
-\pi_i(s_T) = \mathbb{P}(z_{i,T}=1 \mid s_T)
+pi_i(s_T) = \mathbb{P}(z_{i,T}=1 \mid s_T)
 \]
 
 Learned via supervised or weakly-supervised models:
