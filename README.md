@@ -28,17 +28,17 @@ While vanilla HRL often fails in crypto markets due to **extreme volatility, reg
 
 # Methodology
 
-## 1. Factor Pool Generation (`apg_exp1.py`)
+# 1. Factor Pool Generation (`apg_exp1.py`)
 
 This module generates a **diverse and expressive alpha pool** via recursive symbolic construction and time-series transformations, while enforcing basic financial and dimensional constraints.
 
-### Key Components
+## Key Components
 
-#### Feature Dimensions
+### Feature Dimensions
 - **PRICE**: returns, price spreads, candle body ratios, high–low bias, transformed returns  
 - **VOLUME**: taker ratios, net aggression, trade intensity, volume z-scores, ADV
 
-#### Generation Process
+### Generation Process
 
 1. **Base Feature Construction**
    - Log returns
@@ -57,31 +57,31 @@ This module generates a **diverse and expressive alpha pool** via recursive symb
    - Time-series deltas
    - Fibonacci windows: 3, 5, 8, 13, 21, 34, 55
 
-#### Quality Filtering
+### Quality Filtering
 - Minimum variability threshold
 - Minimum IC threshold against forward returns (IC > 0.015)
 - Parallelized batch mining
 
-#### Output
+### Output
 - `signal_matrix.npy`: shape `(T, N)`
 - `alpha_pool.csv`: alpha formulas and quality statistics
 
 ---
 
-## 2. Signal Classification (`cst_main.py`)
+# 2. Signal Classification (`cst_main.py`)
 
-### Purpose
-Classifies raw alphas into **economically interpretable clusters**, enabling hierarchical control and specialization.
+## Purpose
+Classifies raw alphas into **economically interpretable clusters**, enabling hierarchical control and specialization. Due to some serious problems that i detected from directly using those gross factors into mathematical combination and possible RL and DP, I must cluster those factors into different clusters according to their performances in market microstructure. 
 
-### Processing Pipeline
+## Processing Pipeline
 
-#### Signal Validation
+### Signal Validation
 Removes signals with:
 - Near-zero variance
 - Low cardinality
 - Excessive missing values
 
-#### Feature Extraction
+### Feature Extraction
 For each alpha:
 - Return correlation
 - Volatility correlation
@@ -90,7 +90,7 @@ For each alpha:
 - Persistence (autocorrelation)
 - Turnover
 
-#### Cluster Assignment
+### Cluster Assignment
 Seven clusters reflecting real microstructure behaviors:
 1. Trend-following momentum  
 2. Volatility breakout  
@@ -100,7 +100,7 @@ Seven clusters reflecting real microstructure behaviors:
 6. Volume shock response  
 7. Noise-sensitive fast decay  
 
-#### Output
+### Output
 - `alpha_cluster.csv`: enriched alpha metadata with cluster labels
 
 ---
@@ -114,6 +114,7 @@ Instead, it learns:
 
 This design choice is intentional and mathematically motivated.
 
+We assign weights to different groups in different market microstructure, we first utilize a manage-worker logic where a manager will discover the market mstructure and liquidity using my original data, it will decide which groups should be used, the reward should be the PnL across a certain really small percentage of the current price to avoid luck and remember to avoid look-ahead bias, so construct the quality function and guide my through the tech frame and math work that involve in a HRL structure. i think the manager is used to detemine which several clusters are we going to put most weights on (like 90%, while rest of the weight are distributed to other clusters to hedge risk, so that 10% shoule be assigned to clusters that has the lowest correlation with clusters we are going to put big weights on), the task we r going to do next is to train the manager using DL, after that we can train intro-cluster specific alphaes
 ---
 
 ## 3.1 State Representation and No Look-Ahead
@@ -250,19 +251,6 @@ This hierarchy reduces:
 
 ---
 
-# 5. Why This Over Pure RL
-
-Traditional RL in crypto often fails due to:
-- Sparse and delayed rewards
-- Credit assignment collapse
-- Overfitting to historical regimes
-
-This framework:
-- Learns **what to trust**, not just **what to do**
-- Uses RL concepts selectively (hierarchy, value estimation)
-- Defers full HRL policy learning to later stages
-
----
 
 ## Summary
 
@@ -274,10 +262,5 @@ It prioritizes:
 - Interpretability
 - Robustness
 - Practical deployability
-
-RL is treated as a **future extension**, not a prerequisite.
-
 ---
 
-Hope this repo is useful.
-Contributions and discussions are welcome.
