@@ -146,14 +146,16 @@ $$
 subject to the constraints:
 
 - **Exposure constraint**
-$$
-\sum_{i=1}^{N} |w_{i,T}| \\le C
-$$
+
+<p style="text-align: center;">
+$$\sum_{i=1}^{N} |w_{i,T}| \\le C$$
+</p>
 
 - **Risk constraint**
-$$
-\\mathrm{Risk}(p_T) \\le \\rho
-$$
+
+<p style="text-align: center;">
+$$\\mathrm{Risk}(p_T) \\le \\rho$$
+</p>
 
 where:
 - $w_{i,T}$ is the weight assigned to alpha $\\alpha_i$ at time $T$
@@ -352,6 +354,7 @@ This is a **multi-task conditional classification problem**.
 
 ### Locally Weighted Loss
 
+<p style="text-align: center;">
 $$
 \\mathcal{L}_{\\text{select}} =
 \sum_{j=1}^{k} \sum_{i=1}^{N}
@@ -360,6 +363,7 @@ z_{i,t_j} \\log \\pi_i(s_{t_j})
 + (1 - z_{i,t_j}) \\log(1 - \\pi_i(s_{t_j}))
 \\Big]
 $$
+</p>
 
 Learning is strictly local.
 
@@ -391,11 +395,13 @@ This produces stable and interpretable weights.
 
 The full problem:
 
+<p style="text-align: center;">
 $$
 \\max_{\\{w_i, z_i\\}}
 \sum_i z_i \\hat{\\mu}_i w_i
 - \\lambda \sum_i z_i^2 \\hat{\\sigma}_i^2 w_i^2
 $$
+</p>
 
 subject to:
 
@@ -437,11 +443,13 @@ $$
 ## 3.11 Where Deep Learning Helps
 
 - **Representation learning**
+   
 $$
 z_t = f_\\phi(x_{t-1})
 $$
 
 - **Metric learning**
+
 $$
 D_\\theta(s_T, s_t)
 $$
